@@ -58,18 +58,19 @@ launch-kiosk.bat --url "https://your-website.com" --timeout 300 --continuous tru
 
 ## Configuration
 
-### Default Settings
+The extension uses Chrome's Storage API to manage settings with the following defaults:
 
-The extension uses the following default settings when first installed:
-
-```
+```text
 Target URL: about:blank
 Timeout: 300 seconds (5 minutes)
 Continuous Mode: enabled
 ```
 
-These settings are stored using Chrome's Storage API and persist between browser sessions. They can be changed through the extension's popup interface or via URL parameters when launching in kiosk mode.
+Settings can be modified in two ways:
+1. Through the extension's popup interface
+2. Via the launch scripts in kiosk mode
 
+All settings persist between browser sessions unless explicitly changed. The extension uses a fixed ID (`mpkkhcmmngaghkpjhflcjgfgachfodmm`) for stable communication between the launch scripts and the extension itself.
 ## Creating a Kiosk Display
 
 ### Windows

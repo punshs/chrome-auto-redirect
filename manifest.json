@@ -1,4 +1,5 @@
 {
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvnOFJiF4SS7NHh9G8AQv6qnGQB5phx8zXHh3S0xUQQkd0xcGzCPXXgwZJ5Zpn9Dx0HYi9oNXilxEQNqdfmHbphMEwjU5OUVVqVuFW6iVHkQPCxhPL/J8PbEKhJUBpxYJFRLYpjz9BjVYL5ZthwibRMqqOe9JECnePdG8C0XKEYLFhcMJqZmHhT2lCX4EMhZcmKL9JuPRFnbEwb1T/aRhR/yEXpUmpdG+MgSEuqXbFW4qHUimGfkZD1OTpD4EmfQQgD3vROtD/W5QoTuiCrWBIkKx7qOWoWwTqKGF3yNg0AS1nzqaAypApM+rWqsJd2s3dbqUoQXH/L6DPMLe4wIDAQAB",
   "manifest_version": 3,
   "name": "Auto Page Redirector",
   "version": "1.0",
@@ -12,5 +13,6 @@
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "externally_connectable": { "matches": ["*://*/*"] }
 }

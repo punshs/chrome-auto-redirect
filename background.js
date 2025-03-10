@@ -21,30 +21,22 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   });
 });
 
-// Handle URL parameters when Chrome is launched with them
-chrome.runtime.onStartup.addListener(async () => {
-  try {
-    const url = new URL(window.location.href);
-    const params = new URLSearchParams(url.search);
-    
-    if (params.has('url') || params.has('timeout') || params.has('continuous') || params.has('autostart')) {
-      const settings = {
-        targetUrl: params.get('url') || 'about:blank',
-        timeout: parseInt(params.get('timeout')) || 300,
-        continuous: params.get('continuous') === 'true',
-        autostart: params.get('autostart') === 'true'
-      };
-      
-      await chrome.storage.local.set(settings);
-      
-      if (settings.autostart && settings.targetUrl !== 'about:blank') {
-        startTimer(settings.targetUrl, settings.timeout, settings.continuous);
+// Handle launch parameters
+chrome.runtime.onMessageExternal.addListener(
+  async (request, sender, sendResponse) => {
+    if (request.type === 'setConfig') {
+      await chrome.storage.local.set(request.config);
+      if (request.config.autostart && request.config.targetUrl !== 'about:blank') {
+        startTimer(
+          request.config.targetUrl,
+          request.config.timeout,
+          request.config.continuous
+        );
       }
+      sendResponse({ success: true });
     }
-  } catch (error) {
-    console.log('No URL parameters found');
   }
-});
+);
 
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

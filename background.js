@@ -5,7 +5,6 @@ const MIN_NAVIGATION_INTERVAL = 1000; // Minimum time between navigations
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(() => {
-  // Set default settings if not already set
   chrome.storage.local.get({
     defaultUrl: '',
     timeout: 300
@@ -16,22 +15,26 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Monitor tab updates to detect the initial page load
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.active) {
-    chrome.storage.local.get(['defaultUrl'], (items) => {
-      // If this is the first page load and no default URL is set, use this page as home
-      if (!homeUrl && !items.defaultUrl) {
-        homeUrl = tab.url;
-      }
-      // If default URL is set, always use it as home
-      if (items.defaultUrl) {
-        homeUrl = items.defaultUrl;
-      }
-    });
+  if (changeInfo.status === 'complete' && tab.active && tab.url) {
+    // Ignore chrome:// and chrome-extension:// URLs
+    if (!tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+      chrome.storage.local.get(['defaultUrl'], (items) => {
+        // If default URL is set, use it as home
+        if (items.defaultUrl) {
+          homeUrl = items.defaultUrl;
+        }
+        // Otherwise, if we don't have a home URL yet, use this page
+        else if (!homeUrl) {
+          console.log('Setting home URL to:', tab.url);
+          homeUrl = tab.url;
+        }
+      });
+    }
   }
 });
 
-// Monitor all navigation events
-chrome.webNavigation.onCommitted.addListener((details) => {
+// Monitor web navigation events
+chrome.webNavigation.onCompleted.addListener((details) => {
   // Only handle main frame navigations
   if (details.frameId === 0) {
     handleNavigation(details);
@@ -40,6 +43,11 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 
 // Handle navigation events
 async function handleNavigation(details) {
+  // Ignore chrome:// and chrome-extension:// URLs
+  if (details.url.startsWith('chrome://') || details.url.startsWith('chrome-extension://')) {
+    return;
+  }
+
   const now = Date.now();
   // Prevent rapid-fire navigations
   if (now - lastNavigationTime < MIN_NAVIGATION_INTERVAL) {
@@ -53,6 +61,8 @@ async function handleNavigation(details) {
 
   // If we have a home URL and this navigation is to a different page
   if (currentHomeUrl && details.url !== currentHomeUrl) {
+    console.log('Navigation to non-home URL detected:', details.url);
+    
     // Clear any existing timer
     if (redirectTimer) {
       clearTimeout(redirectTimer);
@@ -62,6 +72,7 @@ async function handleNavigation(details) {
     redirectTimer = setTimeout(async () => {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs[0] && tabs[0].url !== currentHomeUrl) {
+        console.log('Redirecting back to home:', currentHomeUrl);
         chrome.tabs.update(tabs[0].id, { url: currentHomeUrl });
       }
     }, settings.timeout * 1000);
@@ -80,20 +91,5 @@ chrome.tabs.onRemoved.addListener(() => {
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.defaultUrl) {
     homeUrl = changes.defaultUrl.newValue || homeUrl;
-  }
-});
-
-// Reset timer when user interacts with the page
-chrome.tabs.onActivated.addListener(() => {
-  if (redirectTimer) {
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (tabs[0]) {
-        const settings = await chrome.storage.local.get(['defaultUrl']);
-        const currentHomeUrl = settings.defaultUrl || homeUrl;
-        if (tabs[0].url !== currentHomeUrl) {
-          handleNavigation({ url: tabs[0].url });
-        }
-      }
-    });
   }
 });

@@ -21,22 +21,31 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   });
 });
 
-// Handle launch parameters
-chrome.runtime.onMessageExternal.addListener(
-  async (request, sender, sendResponse) => {
-    if (request.type === 'setConfig') {
-      await chrome.storage.local.set(request.config);
-      if (request.config.autostart && request.config.targetUrl !== 'about:blank') {
-        startTimer(
-          request.config.targetUrl,
-          request.config.timeout,
-          request.config.continuous
-        );
+// Handle startup and check for URL parameters
+chrome.runtime.onStartup.addListener(async () => {
+  try {
+    // Get the current tab to check for URL parameters
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tabs[0] && tabs[0].url) {
+      const url = new URL(tabs[0].url);
+      const params = new URLSearchParams(url.search);
+      
+      if (params.has('url')) {
+        const settings = {
+          targetUrl: params.get('url'),
+          timeout: parseInt(params.get('timeout')) || 300,
+          continuous: params.get('continuous') !== 'false',
+          autostart: params.get('autostart') !== 'false'
+        };
+        
+        await chrome.storage.local.set(settings);
+        startTimer(settings.targetUrl, settings.timeout, settings.continuous);
       }
-      sendResponse({ success: true });
     }
+  } catch (error) {
+    console.error('Error processing URL parameters:', error);
   }
-);
+});
 
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

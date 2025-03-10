@@ -63,27 +63,15 @@ if not exist "!CHROME_PATH!" (
     exit /b 1
 )
 
-:: Create a temporary HTML file to initialize the extension
-set "TEMP_HTML=%TEMP%\redirect_init.html"
-echo ^<!DOCTYPE html^> > "%TEMP_HTML%"
-echo ^<html^>^<head^>^<script^> >> "%TEMP_HTML%"
-echo const extensionId = 'mpkkhcmmngaghkpjhflcjgfgachfodmm'; >> "%TEMP_HTML%"
-echo const config = { >> "%TEMP_HTML%"
-echo   targetUrl: '%URL%', >> "%TEMP_HTML%"
-echo   timeout: %TIMEOUT%, >> "%TEMP_HTML%"
-echo   continuous: %CONTINUOUS%, >> "%TEMP_HTML%"
-echo   autostart: true >> "%TEMP_HTML%"
-echo }; >> "%TEMP_HTML%"
-echo chrome.runtime.sendMessage(extensionId, { type: 'setConfig', config }, >> "%TEMP_HTML%"
-echo   response =^> { >> "%TEMP_HTML%"
-echo     if (response.success) { >> "%TEMP_HTML%"
-echo       console.log('Extension configured successfully'); >> "%TEMP_HTML%"
-echo     } >> "%TEMP_HTML%"
-echo   } >> "%TEMP_HTML%"
-echo ); >> "%TEMP_HTML%"
-echo ^</script^>^</head^>^<body^>^</body^>^</html^> >> "%TEMP_HTML%"
-
-:: Launch Chrome in kiosk mode with the temporary page
-start "" "!CHROME_PATH!" --kiosk --start-fullscreen --disable-restore-session-state --noerrdialogs --disable-infobars --disable-features=TranslateUI --load-extension="%EXTENSION_PATH%" "file:///%TEMP_HTML%"
+:: Launch Chrome in kiosk mode
+start "" "!CHROME_PATH!" ^
+    --kiosk ^
+    --start-fullscreen ^
+    --disable-restore-session-state ^
+    --noerrdialogs ^
+    --disable-infobars ^
+    --disable-features=TranslateUI ^
+    --load-extension="%EXTENSION_PATH%" ^
+    "about:blank?url=%URL%&timeout=%TIMEOUT%&continuous=%CONTINUOUS%&autostart=true"
 
 exit /b 0

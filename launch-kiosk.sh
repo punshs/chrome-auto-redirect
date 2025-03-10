@@ -39,6 +39,10 @@ echo "URL: $URL"
 echo "Timeout: $TIMEOUT seconds"
 echo "Continuous: $CONTINUOUS"
 
+# Kill any existing Chrome instances
+echo "Closing existing Chrome instances..."
+pkill chrome || true
+
 CHROME_CMD="google-chrome \
   --kiosk \
   --start-fullscreen \
@@ -46,7 +50,8 @@ CHROME_CMD="google-chrome \
   --noerrdialogs \
   --disable-infobars \
   --disable-features=TranslateUI \
+  --no-first-run \
   --load-extension=\"$EXTENSION_PATH\" \
-  \"about:blank?url=$URL&timeout=$TIMEOUT&continuous=$CONTINUOUS&autostart=true\""
+  \"$URL#auto-redirect?timeout=$TIMEOUT&continuous=$CONTINUOUS&autostart=true\""
 
 eval $CHROME_CMD

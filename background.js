@@ -6,49 +6,37 @@ let isContinuous = false;
 
 // Initialize extension with default settings on install
 chrome.runtime.onInstalled.addListener(async (details) => {
-  // Set default configuration
   const defaultSettings = {
     targetUrl: 'about:blank',
     timeout: 300,
-    continuous: true,
-    autostart: false
+    continuous: true
   };
-
-  chrome.storage.local.get(['targetUrl', 'timeout', 'continuous', 'autostart'], (result) => {
-    if (Object.keys(result).length === 0) {
-      chrome.storage.local.set(defaultSettings);
-    }
-  });
+  chrome.storage.local.set(defaultSettings);
 });
 
-// Handle startup and check for URL parameters
-async function checkUrlParameters() {
-  try {
-    // Get the current tab to check for URL parameters
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0] && tabs[0].url) {
-      const url = new URL(tabs[0].url);
-      const params = new URLSearchParams(url.search);
+// Listen for tab updates to check for auto-redirect parameters
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    const url = new URL(tab.url);
+    if (url.hash.startsWith('#auto-redirect')) {
+      // Extract parameters from the URL fragment
+      const params = new URLSearchParams(url.hash.substring('#auto-redirect'.length));
       
-      if (params.has('url')) {
-        const settings = {
-          targetUrl: params.get('url'),
-          timeout: parseInt(params.get('timeout')) || 300,
-          continuous: params.get('continuous') !== 'false',
-          autostart: params.get('autostart') !== 'false'
-        };
-        
-        await chrome.storage.local.set(settings);
-        startTimer(settings.targetUrl, settings.timeout, settings.continuous);
+      // Configure redirect settings
+      const settings = {
+        targetUrl: url.toString().split('#')[0], // Use the base URL without fragment
+        timeout: parseInt(params.get('timeout')) || 300,
+        continuous: params.get('continuous') === 'true'
+      };
+
+      // Start timer if autostart is true
+      if (params.get('autostart') === 'true') {
+        chrome.storage.local.set(settings, () => {
+          startTimer(settings.targetUrl, settings.timeout, settings.continuous);
+        });
       }
     }
-  } catch (error) {
-    console.error('Error processing URL parameters:', error);
   }
-}
-
-chrome.runtime.onStartup.addListener(() => {
-  checkUrlParameters();
 });
 
 // Handle messages from popup
@@ -56,7 +44,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
     case 'startTimer':
       startTimer(message.targetUrl, message.timeout, message.continuous);
-      chrome.storage.local.set({ targetUrl: message.targetUrl, timeout: message.timeout, continuous: message.continuous });
+      chrome.storage.local.set({
+        targetUrl: message.targetUrl,
+        timeout: message.timeout,
+        continuous: message.continuous
+      });
       sendResponse({ success: true });
       break;
     
@@ -79,7 +71,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Start redirect timer
 function startTimer(url, timeout, continuous) {
-  if (redirectTimer) stopTimer(); // Clear any existing timer
+  stopTimer(); // Clear any existing timer
   
   targetUrl = url;
   timeoutDuration = timeout;
@@ -99,7 +91,7 @@ function startTimer(url, timeout, continuous) {
         redirectTimer = null;
       }
     }
-  };
+  }
 
   // Start the initial timer
   redirectTimer = setTimeout(redirectAndReset, timeout * 1000);
@@ -107,18 +99,12 @@ function startTimer(url, timeout, continuous) {
 
 // Stop redirect timer
 function stopTimer() {
-  console.log('Stopping timer');
   if (redirectTimer) {
     clearTimeout(redirectTimer);
     redirectTimer = null;
   }
   isContinuous = false;
 }
-
-// Check for URL parameters when extension loads
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete') checkUrlParameters();
-});
 
 // Clean up when extension is unloaded
 chrome.runtime.onSuspend.addListener(() => {

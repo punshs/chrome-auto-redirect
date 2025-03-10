@@ -2,14 +2,13 @@
   "manifest_version": 3,
   "name": "Auto Page Redirector",
   "version": "1.0",
-  "description": "Automatically redirects to a specified page after a set time",
+  "description": "Automatically redirects back to home page after navigation",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "webNavigation"
   ],
-  "action": {
-    "default_popup": "popup.html"
-  },
+  "options_page": "options.html",
   "background": {
     "service_worker": "background.js"
   }

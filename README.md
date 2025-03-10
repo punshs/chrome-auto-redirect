@@ -1,15 +1,14 @@
 # Chrome Auto-Redirect Extension
 
-A Chrome extension that automatically redirects to a specified URL after a set time interval. Perfect for kiosk displays, digital signage, and automated browsing scenarios.
+A Chrome extension for kiosk displays that automatically redirects back to the home page after navigation. Perfect for public displays, information kiosks, and digital signage.
 
 ## Features
 
-- 🕒 Configurable redirect timer (30 seconds to 1 hour)
-- 🔄 Supports one-time or continuous redirection
-- 🖥️ Kiosk mode support for both Windows and Linux
-- ⚙️ Command-line configuration
-- 💾 Persistent settings storage
-- 🚀 Lightweight and efficient
+- 🏠 Automatic home page detection
+- ⚡ Instant redirect after timeout
+- ⚙️ Configurable settings
+- 🖥️ Kiosk mode support
+- 🎯 No popup interface - works silently in the background
 
 ## Installation
 
@@ -23,87 +22,51 @@ cd chrome-auto-redirect
    - Open Chrome and navigate to `chrome://extensions/`
    - Enable "Developer mode" in the top right
    - Click "Load unpacked"
-   - Select the `auto-redirect-extension` folder
+   - Select the extension folder
+
+## Configuration
+
+1. Right-click the extension icon and select "Options", or visit:
+   `chrome://extensions/?options=<extension_id>`
+
+2. Configure:
+   - **Default URL** (optional): If set, always redirects to this URL. If not set, uses the first loaded page as home.
+   - **Timeout** (seconds): How long to wait before redirecting back to home page after navigation.
 
 ## Usage
 
-### GUI Mode
+### Basic Usage
 
-1. Click the extension icon in Chrome
-2. Enter the target URL
-3. Select the redirect timeout
-4. Choose between one-time or continuous redirection
-5. Click "Start Timer"
+1. Open Chrome with your desired home page
+2. The extension will automatically:
+   - Set the current page as home (unless a default URL is configured)
+   - Monitor for navigation to other pages
+   - Redirect back to home after the set timeout
 
 ### Kiosk Mode
 
 #### Windows
 ```batch
-launch-kiosk.bat --url "https://your-website.com" --timeout 300 --continuous true
+launch-kiosk.bat [initial-url]
 ```
 
 #### Linux
 ```bash
-./launch-kiosk.sh --url "https://your-website.com" --timeout 300 --continuous true
+./launch-kiosk.sh [initial-url]
 ```
 
-### Command Line Parameters
+The `initial-url` parameter is optional. If not provided, Chrome will open to `about:blank`.
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| --url | Target URL to redirect to | about:blank |
-| --timeout | Time in seconds before redirect | 300 |
-| --continuous | Enable continuous redirection | true |
-| --extension-path | Custom path to extension directory | Current directory |
+### How it Works
 
-## Configuration
+1. When Chrome starts:
+   - If a default URL is set in options, it becomes the home page
+   - Otherwise, the first loaded page becomes the home page
 
-The extension uses Chrome's Storage API to manage settings with the following defaults:
-
-```text
-Target URL: about:blank
-Timeout: 300 seconds (5 minutes)
-Continuous Mode: enabled
-```
-
-Settings can be modified in two ways:
-1. Through the extension's popup interface
-2. Via the launch scripts in kiosk mode
-
-All settings persist between browser sessions unless explicitly changed. The extension uses a fixed ID (`mpkkhcmmngaghkpjhflcjgfgachfodmm`) for stable communication between the launch scripts and the extension itself.
-## Creating a Kiosk Display
-
-### Windows
-
-1. Create a desktop shortcut:
-   - Right-click desktop → New → Shortcut
-   - Enter the command:
-     ```batch
-     C:\Windows\System32\cmd.exe /c "C:\Path\To\launch-kiosk.bat" --url "https://your-website.com" --timeout 300
-     ```
-   - Name the shortcut and click Finish
-
-2. Optional: Configure auto-start
-   - Press Win + R
-   - Type `shell:startup`
-   - Move your shortcut to this folder
-
-### Linux
-
-1. Create an autostart entry:
-   ```bash
-   mkdir -p ~/.config/autostart
-   ```
-
-2. Create `chrome-kiosk.desktop`:
-   ```ini
-   [Desktop Entry]
-   Type=Application
-   Name=Chrome Kiosk
-   Exec=/path/to/launch-kiosk.sh --url "https://your-website.com" --timeout 300
-   Hidden=false
-   X-GNOME-Autostart-enabled=true
-   ```
+2. During operation:
+   - When user navigates to any other page, a timer starts
+   - After the configured timeout, redirects back to home
+   - Process repeats for any new navigation
 
 ## Exit Kiosk Mode
 
@@ -113,15 +76,19 @@ All settings persist between browser sessions unless explicitly changed. The ext
 
 ### Project Structure
 ```
-auto-redirect-extension/
+chrome-auto-redirect/
 ├── manifest.json        # Extension configuration
-├── popup.html          # Extension popup UI
-├── popup.js            # Popup logic
-├── background.js       # Background service worker
-├── launch-kiosk.bat    # Windows launcher
-├── launch-kiosk.sh     # Linux launcher
-└── README.md           # Documentation
+├── background.js       # Core redirect logic
+├── options.html        # Settings page
+├── options.js         # Settings logic
+├── launch-kiosk.bat   # Windows launcher
+├── launch-kiosk.sh    # Linux launcher
+└── README.md          # Documentation
 ```
+
+### Building from Source
+
+No build step required - this is a pure JavaScript extension.
 
 ## Contributing
 
@@ -133,10 +100,9 @@ auto-redirect-extension/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE section in this file.
+This project is licensed under the MIT License - see below for details:
 
-## License Text
-
+```
 MIT License
 
 Copyright (c) 2024

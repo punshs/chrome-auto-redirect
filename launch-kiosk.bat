@@ -1,48 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Default values
-set "URL=about:blank"
-set "TIMEOUT=300"
-set "CONTINUOUS=true"
+:: Get URL from first argument or use about:blank
+set "URL=%~1"
+if "%URL%"=="" set "URL=about:blank"
 set "EXTENSION_PATH=%CD%"
-
-:: Parse command line arguments
-:parse_args
-if "%~1"=="" goto :done_parsing
-if "%~1"=="--url" (
-    set "URL=%~2"
-    shift
-    shift
-    goto :parse_args
-)
-if "%~1"=="--timeout" (
-    set "TIMEOUT=%~2"
-    shift
-    shift
-    goto :parse_args
-)
-if "%~1"=="--continuous" (
-    set "CONTINUOUS=%~2"
-    shift
-    shift
-    goto :parse_args
-)
-if "%~1"=="--extension-path" (
-    set "EXTENSION_PATH=%~2"
-    shift
-    shift
-    goto :parse_args
-)
-echo Unknown parameter: %1
-exit /b 1
-
-:done_parsing
-:: Display settings
-echo Launching Chrome in kiosk mode...
-echo URL: %URL%
-echo Timeout: %TIMEOUT% seconds
-echo Continuous: %CONTINUOUS%
 
 :: Find Chrome path from Registry
 for /f "tokens=2*" %%a in ('reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" /ve') do set "CHROME_PATH=%%b"
@@ -63,6 +25,10 @@ if not exist "!CHROME_PATH!" (
     exit /b 1
 )
 
+:: Display settings
+echo Launching Chrome in kiosk mode...
+echo Initial URL: %URL%
+
 :: Launch Chrome in kiosk mode
 start "" "!CHROME_PATH!" ^
     --kiosk ^
@@ -71,7 +37,8 @@ start "" "!CHROME_PATH!" ^
     --noerrdialogs ^
     --disable-infobars ^
     --disable-features=TranslateUI ^
+    --no-first-run ^
     --load-extension="%EXTENSION_PATH%" ^
-    "about:blank?url=%URL%&timeout=%TIMEOUT%&continuous=%CONTINUOUS%&autostart=true"
+    "%URL%"
 
 exit /b 0

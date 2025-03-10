@@ -1,112 +1,99 @@
+let homeUrl = null;
 let redirectTimer = null;
-let targetUrl = '';
-let timeoutDuration = 0;
-let startTime = 0;
-let isContinuous = false;
+let lastNavigationTime = 0;
+const MIN_NAVIGATION_INTERVAL = 1000; // Minimum time between navigations
 
-// Initialize extension with default settings on install
-chrome.runtime.onInstalled.addListener(async (details) => {
-  const defaultSettings = {
-    targetUrl: 'about:blank',
-    timeout: 300,
-    continuous: true
-  };
-  chrome.storage.local.set(defaultSettings);
+// Initialize extension
+chrome.runtime.onInstalled.addListener(() => {
+  // Set default settings if not already set
+  chrome.storage.local.get({
+    defaultUrl: '',
+    timeout: 300
+  }, (items) => {
+    chrome.storage.local.set(items);
+  });
 });
 
-// Listen for tab updates to check for auto-redirect parameters
+// Monitor tab updates to detect the initial page load
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    const url = new URL(tab.url);
-    if (url.hash.startsWith('#auto-redirect')) {
-      // Extract parameters from the URL fragment
-      const params = new URLSearchParams(url.hash.substring('#auto-redirect'.length));
-      
-      // Configure redirect settings
-      const settings = {
-        targetUrl: url.toString().split('#')[0], // Use the base URL without fragment
-        timeout: parseInt(params.get('timeout')) || 300,
-        continuous: params.get('continuous') === 'true'
-      };
-
-      // Start timer if autostart is true
-      if (params.get('autostart') === 'true') {
-        chrome.storage.local.set(settings, () => {
-          startTimer(settings.targetUrl, settings.timeout, settings.continuous);
-        });
+  if (changeInfo.status === 'complete' && tab.active) {
+    chrome.storage.local.get(['defaultUrl'], (items) => {
+      // If this is the first page load and no default URL is set, use this page as home
+      if (!homeUrl && !items.defaultUrl) {
+        homeUrl = tab.url;
       }
-    }
+      // If default URL is set, always use it as home
+      if (items.defaultUrl) {
+        homeUrl = items.defaultUrl;
+      }
+    });
   }
 });
 
-// Handle messages from popup
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.action) {
-    case 'startTimer':
-      startTimer(message.targetUrl, message.timeout, message.continuous);
-      chrome.storage.local.set({
-        targetUrl: message.targetUrl,
-        timeout: message.timeout,
-        continuous: message.continuous
-      });
-      sendResponse({ success: true });
-      break;
-    
-    case 'stopTimer':
-      stopTimer();
-      sendResponse({ success: true });
-      break;
-    
-    case 'getStatus':
-      const remainingTime = redirectTimer ? 
-        Math.ceil((startTime + timeoutDuration * 1000 - Date.now()) / 1000) : 0;
-      sendResponse({ 
-        isRunning: redirectTimer !== null,
-        remainingTime: remainingTime > 0 ? remainingTime : 0
-      });
-      break;
+// Monitor all navigation events
+chrome.webNavigation.onCommitted.addListener((details) => {
+  // Only handle main frame navigations
+  if (details.frameId === 0) {
+    handleNavigation(details);
   }
-  return true;
 });
 
-// Start redirect timer
-function startTimer(url, timeout, continuous) {
-  stopTimer(); // Clear any existing timer
-  
-  targetUrl = url;
-  timeoutDuration = timeout;
-  startTime = Date.now();
-  isContinuous = continuous;
-  
-  async function redirectAndReset() {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs[0]) {
-      chrome.tabs.update(tabs[0].id, { url: targetUrl });
-      
-      // If continuous mode is enabled, restart the timer
-      if (isContinuous) {
-        startTime = Date.now();
-        redirectTimer = setTimeout(redirectAndReset, timeoutDuration * 1000);
-      } else {
-        redirectTimer = null;
-      }
-    }
+// Handle navigation events
+async function handleNavigation(details) {
+  const now = Date.now();
+  // Prevent rapid-fire navigations
+  if (now - lastNavigationTime < MIN_NAVIGATION_INTERVAL) {
+    return;
   }
+  lastNavigationTime = now;
 
-  // Start the initial timer
-  redirectTimer = setTimeout(redirectAndReset, timeout * 1000);
+  // Get current settings
+  const settings = await chrome.storage.local.get(['defaultUrl', 'timeout']);
+  const currentHomeUrl = settings.defaultUrl || homeUrl;
+
+  // If we have a home URL and this navigation is to a different page
+  if (currentHomeUrl && details.url !== currentHomeUrl) {
+    // Clear any existing timer
+    if (redirectTimer) {
+      clearTimeout(redirectTimer);
+    }
+
+    // Start new redirect timer
+    redirectTimer = setTimeout(async () => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs[0] && tabs[0].url !== currentHomeUrl) {
+        chrome.tabs.update(tabs[0].id, { url: currentHomeUrl });
+      }
+    }, settings.timeout * 1000);
+  }
 }
 
-// Stop redirect timer
-function stopTimer() {
+// Clear timer when tab is closed
+chrome.tabs.onRemoved.addListener(() => {
   if (redirectTimer) {
     clearTimeout(redirectTimer);
     redirectTimer = null;
   }
-  isContinuous = false;
-}
+});
 
-// Clean up when extension is unloaded
-chrome.runtime.onSuspend.addListener(() => {
-  stopTimer();
+// Update home URL when settings change
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.defaultUrl) {
+    homeUrl = changes.defaultUrl.newValue || homeUrl;
+  }
+});
+
+// Reset timer when user interacts with the page
+chrome.tabs.onActivated.addListener(() => {
+  if (redirectTimer) {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs[0]) {
+        const settings = await chrome.storage.local.get(['defaultUrl']);
+        const currentHomeUrl = settings.defaultUrl || homeUrl;
+        if (tabs[0].url !== currentHomeUrl) {
+          handleNavigation({ url: tabs[0].url });
+        }
+      }
+    });
+  }
 });

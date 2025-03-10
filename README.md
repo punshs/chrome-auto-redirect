@@ -58,19 +58,17 @@ launch-kiosk.bat --url "https://your-website.com" --timeout 300 --continuous tru
 
 ## Configuration
 
-### manifest.json
-```json
-{
-  "default_config": {
-    "targetUrl": "about:blank",
-    "timeout": 300,
-    "continuous": true,
-    "autostart": false
-  }
-}
+### Default Settings
+
+The extension uses the following default settings when first installed:
+
+```
+Target URL: about:blank
+Timeout: 300 seconds (5 minutes)
+Continuous Mode: enabled
 ```
 
-You can modify these default values in `manifest.json` to change the extension's initial settings.
+These settings are stored using Chrome's Storage API and persist between browser sessions. They can be changed through the extension's popup interface or via URL parameters when launching in kiosk mode.
 
 ## Creating a Kiosk Display
 

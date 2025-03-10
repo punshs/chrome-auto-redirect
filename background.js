@@ -4,35 +4,45 @@ let timeoutDuration = 0;
 let startTime = 0;
 let isContinuous = false;
 
-// Initialize extension on install or update
+// Initialize extension with default settings on install
 chrome.runtime.onInstalled.addListener(async (details) => {
-  const manifest = chrome.runtime.getManifest();
-  const defaultConfig = manifest.default_config;
-  
-  // Get URL parameters if any
-  const url = new URL(window.location.href);
-  const params = new URLSearchParams(url.search);
-  
-  // Set initial configuration
-  await chrome.storage.local.set({
-    targetUrl: params.get('url') || defaultConfig.targetUrl,
-    timeout: parseInt(params.get('timeout')) || defaultConfig.timeout,
-    continuous: params.has('continuous') ? 
-      params.get('continuous') === 'true' : 
-      defaultConfig.continuous,
-    autostart: params.has('autostart') ? 
-      params.get('autostart') === 'true' : 
-      defaultConfig.autostart
-  });
+  // Set default configuration
+  const defaultSettings = {
+    targetUrl: 'about:blank',
+    timeout: 300,
+    continuous: true,
+    autostart: false
+  };
 
-  // Auto-start if configured
-  const config = await chrome.storage.local.get(['autostart', 'targetUrl', 'timeout', 'continuous']);
-  if (config.autostart && config.targetUrl !== 'about:blank') {
-    startTimer(
-      config.targetUrl,
-      config.timeout,
-      config.continuous
-    );
+  chrome.storage.local.get(['targetUrl', 'timeout', 'continuous', 'autostart'], (result) => {
+    if (Object.keys(result).length === 0) {
+      chrome.storage.local.set(defaultSettings);
+    }
+  });
+});
+
+// Handle URL parameters when Chrome is launched with them
+chrome.runtime.onStartup.addListener(async () => {
+  try {
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    
+    if (params.has('url') || params.has('timeout') || params.has('continuous') || params.has('autostart')) {
+      const settings = {
+        targetUrl: params.get('url') || 'about:blank',
+        timeout: parseInt(params.get('timeout')) || 300,
+        continuous: params.get('continuous') === 'true',
+        autostart: params.get('autostart') === 'true'
+      };
+      
+      await chrome.storage.local.set(settings);
+      
+      if (settings.autostart && settings.targetUrl !== 'about:blank') {
+        startTimer(settings.targetUrl, settings.timeout, settings.continuous);
+      }
+    }
+  } catch (error) {
+    console.log('No URL parameters found');
   }
 });
 

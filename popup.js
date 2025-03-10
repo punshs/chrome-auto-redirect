@@ -1,5 +1,3 @@
-let port = chrome.runtime.connect({ name: "popup" });
-
 // DOM elements
 const targetUrlInput = document.getElementById('targetUrl');
 const timeoutSelect = document.getElementById('timeout');

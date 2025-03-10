@@ -22,7 +22,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 // Handle startup and check for URL parameters
-chrome.runtime.onStartup.addListener(async () => {
+async function checkUrlParameters() {
   try {
     // Get the current tab to check for URL parameters
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -45,6 +45,10 @@ chrome.runtime.onStartup.addListener(async () => {
   } catch (error) {
     console.error('Error processing URL parameters:', error);
   }
+}
+
+chrome.runtime.onStartup.addListener(() => {
+  checkUrlParameters();
 });
 
 // Handle messages from popup
@@ -52,6 +56,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
     case 'startTimer':
       startTimer(message.targetUrl, message.timeout, message.continuous);
+      chrome.storage.local.set({ targetUrl: message.targetUrl, timeout: message.timeout, continuous: message.continuous });
       sendResponse({ success: true });
       break;
     
@@ -74,7 +79,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Start redirect timer
 function startTimer(url, timeout, continuous) {
-  stopTimer(); // Clear any existing timer
+  if (redirectTimer) stopTimer(); // Clear any existing timer
   
   targetUrl = url;
   timeoutDuration = timeout;
@@ -85,16 +90,16 @@ function startTimer(url, timeout, continuous) {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs[0]) {
       chrome.tabs.update(tabs[0].id, { url: targetUrl });
+      
+      // If continuous mode is enabled, restart the timer
+      if (isContinuous) {
+        startTime = Date.now();
+        redirectTimer = setTimeout(redirectAndReset, timeoutDuration * 1000);
+      } else {
+        redirectTimer = null;
+      }
     }
-    
-    // If continuous mode is enabled, restart the timer
-    if (isContinuous) {
-      startTime = Date.now();
-      redirectTimer = setTimeout(redirectAndReset, timeoutDuration * 1000);
-    } else {
-      redirectTimer = null;
-    }
-  }
+  };
 
   // Start the initial timer
   redirectTimer = setTimeout(redirectAndReset, timeout * 1000);
@@ -102,12 +107,18 @@ function startTimer(url, timeout, continuous) {
 
 // Stop redirect timer
 function stopTimer() {
+  console.log('Stopping timer');
   if (redirectTimer) {
     clearTimeout(redirectTimer);
     redirectTimer = null;
   }
   isContinuous = false;
 }
+
+// Check for URL parameters when extension loads
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete') checkUrlParameters();
+});
 
 // Clean up when extension is unloaded
 chrome.runtime.onSuspend.addListener(() => {
